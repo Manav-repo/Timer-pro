@@ -1554,13 +1554,16 @@
         elBtnStart.onclick = () => STATE.mode === 'quick' ? QuickTimer.start() : CircuitController.start();
         elBtnReset.onclick = () => STATE.mode === 'quick' ? QuickTimer.reset() : CircuitController.reset();
 
-        elTimerText.addEventListener('click', (e) => {
-            // Mobile Interaction: Toggle Controls on Tap when Running
-            if (timer.running) {
-                toggleFocusMode(!document.body.classList.contains('running-focus'));
-                return;
-            }
+        // Global Click to Toggle Controls (Mobile "Tap Anywhere")
+        document.addEventListener('click', (e) => {
+            if (!timer.running) return;
+            // Ignore actual buttons/inputs
+            if (e.target.closest('button') || e.target.closest('a') || e.target.closest('input')) return;
 
+            toggleFocusMode(!document.body.classList.contains('running-focus'));
+        });
+
+        elTimerText.addEventListener('click', (e) => {
             if (e.target.closest('.timer-segment') || e.target.closest('#timer-text')) {
                 if (STATE.mode === 'quick' && !timer.running) {
                     elMobileInput.classList.add('open');
