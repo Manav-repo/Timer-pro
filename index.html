@@ -1490,7 +1490,12 @@
             },
             () => {
                 if (STATE.mode === 'circuit') CircuitController.next();
-                else { elTimerText.innerHTML = "DONE"; document.body.className = 'theme-green'; elBtnStart.textContent = "Start"; }
+                else {
+                    elTimerText.innerHTML = "Time's Up";
+                    document.body.className = 'theme-red';
+                    AudioEngine.playBuzzer();
+                    elBtnStart.textContent = "Start";
+                }
             }
         );
 
