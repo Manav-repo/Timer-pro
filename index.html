@@ -1,0 +1,1386 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>HIIT Timer Pro</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;900&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --font-main: 'Outfit', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            --bg-color: #050505;
+            --text-color: #FFFFFF;
+            --accent-glow: 253, 68, 86;
+            --text-stroke: transparent;
+            --control-bg: rgba(255, 255, 255, 0.1);
+            --control-border: rgba(255, 255, 255, 0.12);
+            --focus-ring: rgba(255, 255, 255, 0.5);
+            --progress-width: 50px;
+            --transition-theme: 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+
+            /* Editor Specifics */
+            --card-bg: #1A1A1A;
+            --card-border: #333333;
+            --input-bg: #111111;
+        }
+
+        body.theme-red {
+            --bg-color: #FD4456;
+            --text-color: #0D1A22;
+            --accent-glow: 0, 0, 0;
+            --text-stroke: rgba(0, 0, 0, 0.2);
+            --control-bg: rgba(13, 26, 34, 0.1);
+            --control-border: rgba(13, 26, 34, 0.2);
+        }
+
+        body.theme-blue {
+            --bg-color: #0052A3;
+            --text-color: #FFFFFF;
+            --accent-glow: 74, 144, 226;
+        }
+
+        body.theme-green {
+            --bg-color: #00AA00;
+            --text-color: #FFFFFF;
+            --accent-glow: 255, 255, 255;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            outline: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: var(--font-main);
+            overflow: hidden;
+            height: 100vh;
+            width: 100vw;
+            transition: background-color 0.3s ease, color 0.3s ease;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        #progress-svg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        #border-path {
+            fill: none;
+            stroke: var(--text-color);
+            stroke-width: var(--progress-width);
+            stroke-opacity: 0.9;
+            stroke-linecap: butt;
+            stroke-linejoin: miter;
+            filter: drop-shadow(0 0 4px rgba(var(--accent-glow), 0.5));
+            transition: stroke 0.3s ease, filter 0.3s ease;
+        }
+
+        /* FOCUS MODE FIX */
+        body.running-focus .controls-bar,
+        body.running-focus .mode-switcher,
+        body.running-focus .shortcuts-legend,
+        body.running-focus #editor-modal {
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.5s ease-out;
+        }
+
+        body.running-focus .timer-display,
+        body.running-focus #progress-svg,
+        body.running-focus .circuit-status {
+            opacity: 1 !important;
+            visibility: visible !important;
+            z-index: 20 !important;
+        }
+
+        .app-shell {
+            position: relative;
+            z-index: 20;
+            height: 100%;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .timer-display {
+            font-size: 50vmin;
+            font-weight: 600;
+            line-height: 0.85;
+            letter-spacing: -0.02em;
+            font-variant-numeric: tabular-nums;
+            display: inline-flex;
+            align-items: baseline;
+            gap: 0;
+            cursor: default;
+            -webkit-text-stroke: 1px var(--text-stroke);
+            text-shadow: 0 0 30px rgba(var(--accent-glow), 0.4);
+            transition: transform 1s linear;
+            will-change: transform;
+            z-index: 20;
+        }
+
+        .circuit-status {
+            position: absolute;
+            top: 15vh;
+            font-size: 1.5rem;
+            font-weight: 600;
+            opacity: 0.7;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            transition: opacity 0.3s;
+        }
+
+        .timer-segment {
+            position: relative;
+            min-width: 0.5em;
+            text-align: center;
+            cursor: pointer;
+            border-radius: 8px;
+            padding: 0 0.1em;
+            transition: background 0.2s ease;
+        }
+
+        .timer-segment:hover {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .timer-segment.editing {
+            background: rgba(255, 255, 255, 0.1);
+            outline: 3px solid rgba(255, 255, 255, 0.5);
+            outline-offset: 4px;
+            animation: editPulse 1.5s ease-in-out infinite;
+            cursor: text;
+        }
+
+        .timer-separator {
+            padding: 0 0.05em;
+            opacity: 0.8;
+            pointer-events: none;
+        }
+
+        @keyframes editPulse {
+
+            0%,
+            100% {
+                outline-color: rgba(255, 255, 255, 0.3);
+            }
+
+            50% {
+                outline-color: rgba(255, 255, 255, 0.6);
+            }
+        }
+
+        @media (min-width: 1200px) {
+            .timer-display {
+                font-size: 60vmin;
+            }
+        }
+
+        .controls-bar {
+            position: absolute;
+            bottom: calc(var(--progress-width) + 2rem);
+            display: flex;
+            gap: 1rem;
+            transition: opacity 0.5s ease;
+            z-index: 30;
+        }
+
+        .btn {
+            background: var(--control-bg);
+            border: 1px solid var(--control-border);
+            color: var(--text-color);
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-family: var(--font-main);
+            font-weight: 700;
+            font-size: 1.1rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1rem;
+            cursor: pointer;
+            backdrop-filter: blur(10px);
+            transition: transform 0.1s active, background 0.2s;
+            min-width: 80px;
+        }
+
+        .btn:active {
+            transform: scale(0.96);
+        }
+
+        .mode-switcher {
+            position: absolute;
+            top: calc(var(--progress-width) + 2rem);
+            right: calc(var(--progress-width) + 2rem);
+            background: rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(4px);
+            padding: 6px;
+            border-radius: 16px;
+            display: flex;
+            gap: 4px;
+            z-index: 30;
+            transition: opacity 0.5s ease;
+        }
+
+        .mode-btn {
+            background: transparent;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 10px;
+            color: rgba(255, 255, 255, 0.5);
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .mode-btn.active {
+            background: rgba(255, 255, 255, 0.2);
+            color: #FFF;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        body.theme-red .mode-btn {
+            color: rgba(13, 26, 34, 0.5);
+        }
+
+        body.theme-red .mode-btn.active {
+            background: rgba(13, 26, 34, 0.15);
+            color: #0D1A22;
+        }
+
+        .error-toast,
+        .mobile-toast {
+            position: fixed;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #FD4456;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 24px;
+            font-weight: 700;
+            font-size: 0.9rem;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            z-index: 10000;
+            pointer-events: none;
+        }
+
+        .error-toast {
+            bottom: 15vh;
+            animation: slideUp 0.3s ease;
+        }
+
+        .mobile-toast {
+            top: 20px;
+            background: rgba(0, 150, 255, 0.95);
+            animation: toastSlideIn 0.3s ease;
+        }
+
+        .toast-success {
+            background: rgba(0, 200, 100, 0.95);
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translate(-50%, 20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translate(-50%, 0);
+            }
+        }
+
+        @keyframes toastSlideIn {
+            from {
+                opacity: 0;
+                transform: translate(-50%, -20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translate(-50%, 0);
+            }
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        /* SHORTCUTS LEGEND */
+        .shortcuts-legend {
+            position: fixed;
+            bottom: 1rem;
+            right: 1rem;
+            z-index: 100;
+            display: none;
+        }
+
+        @media (min-width: 768px) {
+            .shortcuts-legend {
+                display: block;
+            }
+        }
+
+        .shortcuts-toggle {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: white;
+            font-size: 1.5rem;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .shortcuts-panel {
+            position: absolute;
+            bottom: 60px;
+            right: 0;
+            width: 280px;
+            background: rgba(20, 20, 20, 0.98);
+            backdrop-filter: blur(20px);
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+            opacity: 0;
+            transform: translateY(10px);
+            pointer-events: none;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .shortcuts-panel.visible {
+            opacity: 1;
+            transform: translateY(0);
+            pointer-events: auto;
+        }
+
+        .shortcuts-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .shortcut-item {
+            display: flex;
+            align-items: center;
+            padding: 0.75rem;
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 0.9rem;
+        }
+
+        .shortcut-item kbd {
+            min-width: 48px;
+            padding: 6px 12px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 6px;
+            font-family: monospace;
+            font-weight: 600;
+            text-align: center;
+            color: white;
+            margin-right: 1rem;
+        }
+
+        .shortcut-feedback {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.9);
+            color: white;
+            padding: 16px 24px;
+            border-radius: 12px;
+            font-size: 1.2rem;
+            font-weight: 600;
+            z-index: 10000;
+            pointer-events: none;
+            animation: feedbackAnim 0.8s ease;
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        @keyframes feedbackAnim {
+            0% {
+                opacity: 0;
+                transform: translate(-50%, -50%) scale(0.8);
+            }
+
+            20% {
+                opacity: 1;
+                transform: translate(-50%, -50%) scale(1.1);
+            }
+
+            100% {
+                opacity: 0;
+                transform: translate(-50%, -50%) scale(0.9);
+            }
+        }
+
+        /* PICKER */
+        .timer-input-mobile,
+        .edit-input-popup {
+            display: none;
+            position: fixed;
+            z-index: 2000;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(5px);
+            justify-content: center;
+            align-items: center;
+        }
+
+        .timer-input-mobile.open,
+        .edit-input-popup.open {
+            display: flex;
+        }
+
+        .picker-container {
+            width: 90%;
+            max-width: 320px;
+            background: #1A1A1A;
+            border-radius: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 20px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+        }
+
+        .picker-row {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 180px;
+            position: relative;
+        }
+
+        .picker-wheel {
+            display: inline-block;
+            width: 80px;
+            height: 180px;
+            position: relative;
+            overflow: hidden;
+            touch-action: pan-y;
+        }
+
+        .picker-item {
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            font-weight: 400;
+            color: rgba(255, 255, 255, 0.4);
+        }
+
+        .picker-item.selected {
+            font-size: 2.2rem;
+            font-weight: 600;
+            color: #FFFFFF;
+        }
+
+        .picker-highlight {
+            position: absolute;
+            top: 60px;
+            left: 0;
+            right: 0;
+            height: 60px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        /* EDITOR MODAL */
+        #editor-modal {
+            position: fixed;
+            inset: 0;
+            z-index: 1000;
+            background: #080808;
+            display: flex;
+            flex-direction: column;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+
+        #editor-modal.open {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .modal-header {
+            text-align: center;
+            padding: 2rem 1rem 1rem;
+        }
+
+        .modal-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: rgba(255, 255, 255, 0.4);
+            margin-bottom: 1rem;
+        }
+
+        .rounds-control {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .rounds-btn {
+            width: 48px;
+            height: 48px;
+            background: #262626;
+            border: 1px solid #404040;
+            color: white;
+            font-size: 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: background 0.2s;
+        }
+
+        .rounds-btn:active {
+            background: #333;
+        }
+
+        .rounds-display {
+            width: 48px;
+            height: 48px;
+            border: 1px solid #404040;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.25rem;
+            font-weight: 700;
+            background: #000;
+            border-radius: 4px;
+        }
+
+        .total-duration {
+            background: white;
+            color: black;
+            padding: 8px 16px;
+            border-radius: 4px;
+            font-weight: 600;
+            display: inline-block;
+            font-size: 1rem;
+        }
+
+        .editor-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 1rem;
+            max-width: 800px;
+            margin: 0 auto;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .editor-footer {
+            padding: 2rem;
+            display: flex;
+            justify-content: center;
+            gap: 2rem;
+            align-items: center;
+            background: #080808;
+            border-top: 1px solid #222;
+        }
+
+        .footer-btn {
+            background: transparent;
+            border: 1px solid #404040;
+            color: white;
+            padding: 12px 32px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            min-width: 140px;
+        }
+
+        .footer-btn:hover {
+            background: #1a1a1a;
+        }
+
+        .footer-btn.primary {
+            background: white;
+            color: black;
+            border: none;
+            font-weight: 700;
+        }
+
+        .footer-btn.primary:hover {
+            transform: scale(1.05);
+        }
+
+        .footer-btn.text {
+            border: none;
+        }
+
+        /* DRAG & DROP VISUALS */
+        .interval-card {
+            background: #111;
+            border: 2px solid #333;
+            height: 80px;
+            display: grid;
+            grid-template-columns: 48px 1fr auto auto;
+            align-items: center;
+            gap: 1rem;
+            padding: 0 1rem;
+            transition: transform 0.25s, opacity 0.25s;
+            position: relative;
+            will-change: transform;
+            user-select: none;
+        }
+
+        /* Draggable List State */
+        .editor-content.is-dragging-active .interval-card {
+            opacity: 0.7;
+        }
+
+        .editor-content.is-dragging-active .interval-card.drag-placeholder {
+            opacity: 0.3;
+            border: 1px dashed #444;
+        }
+
+        /* Floating Ghost Card */
+        .drag-ghost {
+            position: fixed;
+            z-index: 9999;
+            pointer-events: none;
+            opacity: 0.9;
+            transform: scale(1.05);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8);
+            width: var(--ghost-width, auto);
+            height: var(--ghost-height, auto);
+            border: 2px solid #FD4456;
+            background: #111;
+            /* Layout must match grid */
+            display: grid;
+            grid-template-columns: 48px 1fr auto auto;
+            align-items: center;
+            gap: 1rem;
+            padding: 0 1rem;
+        }
+
+        /* Drop Line Indicator */
+        .drop-indicator {
+            height: 4px;
+            background: #FD4456;
+            border-radius: 2px;
+            box-shadow: 0 0 10px #FD4456, 0 0 20px #FD4456;
+            margin: 8px 0;
+            position: relative;
+            animation: pulseLine 1s infinite alternate;
+            pointer-events: none;
+        }
+
+        .drop-indicator::before,
+        .drop-indicator::after {
+            content: "▼";
+            position: absolute;
+            color: #FD4456;
+            font-size: 12px;
+            top: -14px;
+        }
+
+        .drop-indicator::before {
+            left: 0;
+        }
+
+        .drop-indicator::after {
+            right: 0;
+        }
+
+        @keyframes pulseLine {
+            from {
+                opacity: 0.6;
+                box-shadow: 0 0 5px #FD4456;
+            }
+
+            to {
+                opacity: 1;
+                box-shadow: 0 0 15px #FD4456;
+            }
+        }
+
+        .drag-handle {
+            color: rgba(255, 255, 255, 0.4);
+            font-size: 1.5rem;
+            cursor: grab;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            touch-action: none;
+        }
+
+        .card-name-input {
+            background: transparent;
+            border: none;
+            color: white;
+            font-family: var(--font-main);
+            font-size: 1rem;
+            font-weight: 700;
+            width: 100%;
+            padding: 8px 0;
+        }
+
+        .card-name-input:focus {
+            outline: none;
+            border-bottom: 1px solid #555;
+        }
+
+        .time-control-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .mini-btn {
+            width: 40px;
+            height: 40px;
+            background: #262626;
+            border: none;
+            color: rgba(255, 255, 255, 0.6);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .mini-btn:hover {
+            background: #333;
+            color: white;
+        }
+
+        .time-display-box {
+            width: 100px;
+            height: 40px;
+            border: 1px solid #404040;
+            background: #000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 0.9rem;
+            cursor: pointer;
+        }
+
+        .btn-delete {
+            color: #FF453A;
+            background: transparent;
+            border: none;
+            font-size: 1.2rem;
+            padding: 8px;
+            cursor: pointer;
+            opacity: 0.7;
+            transition: opacity 0.2s;
+        }
+
+        .btn-delete:hover {
+            opacity: 1;
+        }
+
+        @media (max-width: 600px) {
+            .interval-card {
+                height: auto;
+                grid-template-columns: 48px 1fr auto;
+                grid-template-rows: auto auto;
+                padding: 1rem;
+            }
+
+            .drag-handle {
+                grid-row: 1 / 3;
+            }
+
+            .card-name-input {
+                grid-column: 2 / 4;
+                margin-bottom: 0.5rem;
+            }
+
+            .time-control-group {
+                grid-column: 2 / 3;
+            }
+
+            .btn-delete {
+                grid-column: 3 / 4;
+            }
+
+            .editor-footer {
+                flex-direction: column;
+                gap: 1rem;
+            }
+
+            .footer-btn {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+
+<body class="theme-black">
+    <div id="flash-overlay"></div>
+    <svg id="progress-svg">
+        <path id="border-path" d="" />
+    </svg>
+
+    <div class="app-shell">
+        <header class="mode-switcher">
+            <button class="mode-btn active" onclick="setMode('quick')">Quick</button>
+            <button class="mode-btn" onclick="setMode('circuit')">Circuit</button>
+        </header>
+
+        <main id="main-timer" aria-live="polite">
+            <div id="circuit-status" class="circuit-status hidden">Ready</div>
+            <div id="timer-text" class="timer-display" role="timer">
+                <span class="timer-segment minutes" aria-label="Minutes">10</span><span
+                    class="timer-separator">:</span><span class="timer-segment seconds" aria-label="Seconds">00</span>
+            </div>
+        </main>
+
+        <footer class="controls-bar" id="normalControls">
+            <button class="btn" id="btn-reset">Reset</button>
+            <button class="btn" id="btn-start" style="background: rgba(var(--accent-glow), 0.3);">Start</button>
+        </footer>
+    </div>
+
+    <div id="editor-modal">
+        <div class="modal-header">
+            <div class="modal-title">Design your workout rounds</div>
+            <div style="font-size:0.9rem; color:rgba(255,255,255,0.6); margin-bottom:8px">Circuit rounds:</div>
+            <div class="rounds-control">
+                <button class="rounds-btn" onclick="CircuitController.updateRounds(-1)">&minus;</button>
+                <div class="rounds-display" id="rounds-count">3</div>
+                <button class="rounds-btn" onclick="CircuitController.updateRounds(1)">&plus;</button>
+            </div>
+            <div class="total-duration" id="total-duration">Total Duration: 0m 00s</div>
+        </div>
+
+        <div class="editor-content" id="interval-list">
+            <!-- Cards go here -->
+        </div>
+
+        <div class="editor-footer">
+            <button class="footer-btn" onclick="setMode('quick')">Back</button>
+            <button class="footer-btn text" onclick="CircuitController.addInterval()">+ Add Round</button>
+            <button class="footer-btn primary" onclick="CircuitController.startQueue()">Start Circuit</button>
+        </div>
+    </div>
+
+    <!-- PICKER -->
+    <div class="timer-input-mobile" id="mobileTimerInput">
+        <div class="picker-container">
+            <div class="picker-row">
+                <div id="minutesPicker"></div>
+                <div style="padding:0 10px; font-size:2rem; opacity:0.6">:</div>
+                <div id="secondsPicker"></div>
+            </div>
+            <button class="btn" id="setTimeBtn"
+                style="width:100%; background:rgba(255,255,255,0.2); margin-top:20px;">Set Time</button>
+        </div>
+    </div>
+
+    <!-- SHORTCUTS -->
+    <div class="shortcuts-legend" id="shortcutsLegend">
+        <button class="shortcuts-toggle" id="shortcutsToggle">⌨️</button>
+        <div class="shortcuts-panel" id="shortcutsPanel">
+            <div class="shortcuts-header">
+                <h3>Keyboard Shortcuts</h3>
+            </div>
+            <div class="shortcuts-list">
+                <div class="shortcut-item"><kbd>Space</kbd><span>Start/Pause</span></div>
+                <div class="shortcut-item"><kbd>R</kbd><span>Reset</span></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const CONFIG = { baseStrokeDesktop: 50, baseStrokeMobile: 20 };
+        const formatTime = (seconds) => ({ m: Math.floor(seconds / 60).toString(), s: (seconds % 60).toString().padStart(2, '0') });
+        const formatDur = (s) => s >= 60 ? `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')} min` : `${s} sec`;
+        const isMobile = () => /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || window.innerWidth < 768;
+
+        // --- MOMENTUM PICKER ---
+        class MomentumPicker {
+            constructor(element, options = {}) {
+                this.element = element; this.min = options.min || 0; this.max = options.max || 99; this.step = options.step || 1;
+                this.currentValue = options.initialValue || 0; this.itemHeight = 60; this.scrollPos = 0; this.items = [];
+                for (let i = this.min; i <= this.max; i += this.step) this.items.push(i);
+                this.render(); this.attachEvents(); this.snapToValue(this.currentValue);
+            }
+            render() {
+                this.element.className = 'picker-wheel'; this.element.innerHTML = '';
+                this.scrollCont = document.createElement('div'); this.scrollCont.style.cssText = 'position:relative;will-change:transform;';
+                this.scrollCont.appendChild(this.createItem(''));
+                this.items.forEach(v => this.scrollCont.appendChild(this.createItem(String(v).padStart(2, '0'))));
+                this.scrollCont.appendChild(this.createItem(''));
+                this.element.appendChild(this.scrollCont);
+                const h = document.createElement('div'); h.className = 'picker-highlight'; this.element.appendChild(h);
+            }
+            createItem(txt) { const d = document.createElement('div'); d.className = 'picker-item'; d.innerText = txt; return d; }
+            attachEvents() {
+                let startY = 0, lastY = 0, vel = 0, raf;
+                const move = (y) => { const dy = y - lastY; this.scrollPos += dy; this.update(); lastY = y; vel = dy; };
+                const end = () => { if (Math.abs(vel) > 1) { let decel = 0.95; const coast = () => { this.scrollPos += vel; vel *= decel; this.update(); if (Math.abs(vel) > 0.5) raf = requestAnimationFrame(coast); else snap(); }; raf = requestAnimationFrame(coast); } else snap(); };
+                const snap = () => { const idx = Math.round(-this.scrollPos / this.itemHeight); const safe = Math.max(0, Math.min(this.items.length - 1, idx)); this.scrollTo(safe); };
+                this.element.addEventListener('touchstart', e => { startY = lastY = e.touches[0].clientY; vel = 0; if (raf) cancelAnimationFrame(raf); }, { passive: true });
+                this.element.addEventListener('touchmove', e => { move(e.touches[0].clientY); }, { passive: true });
+                this.element.addEventListener('touchend', end);
+                this.element.addEventListener('mousedown', e => { startY = lastY = e.clientY; vel = 0; if (raf) cancelAnimationFrame(raf); const mm = ev => { move(ev.clientY) }; const mu = () => { document.removeEventListener('mousemove', mm); document.removeEventListener('mouseup', mu); end(); }; document.addEventListener('mousemove', mm); document.addEventListener('mouseup', mu); });
+            }
+            update() {
+                const min = -(this.items.length - 1) * this.itemHeight; this.scrollPos = Math.max(min, Math.min(0, this.scrollPos));
+                this.scrollCont.style.transform = `translateY(${this.scrollPos}px)`;
+                const selIdx = Math.round(-this.scrollPos / this.itemHeight);
+                this.scrollCont.querySelectorAll('.picker-item').forEach((el, i) => el.classList.toggle('selected', i === selIdx + 1));
+                this.currentValue = this.items[Math.max(0, Math.min(this.items.length - 1, selIdx))];
+            }
+            scrollTo(idx) { this.scrollPos = -idx * this.itemHeight; this.scrollCont.style.transition = 'transform 0.3s cubic-bezier(0.2,0.8,0.2,1)'; this.update(); setTimeout(() => this.scrollCont.style.transition = '', 300); }
+            snapToValue(v) { const i = this.items.indexOf(v); if (i !== -1) this.scrollTo(i); }
+            getValue() { return this.currentValue; }
+        }
+
+        // --- TIMER ENGINE ---
+        class TimerEngine {
+            constructor(onTick, onComplete) {
+                this.onTick = onTick; this.onComplete = onComplete;
+                this.running = false; this.remaining = 0; this.duration = 0; this.endTime = 0;
+            }
+            start(s) { if (s <= 0) return; this.duration = s; this.remaining = s; this.endTime = performance.now() + s * 1000; this.running = true; this.loop(); toggleFocusMode(true); }
+            resume() { if (!this.running && this.remaining > 0) { this.running = true; this.endTime = performance.now() + this.remaining * 1000; this.loop(); toggleFocusMode(true); } }
+            pause() { this.running = false; cancelAnimationFrame(this.raf); toggleFocusMode(false); }
+            reset() { this.running = false; cancelAnimationFrame(this.raf); this.remaining = 0; toggleFocusMode(false); }
+            loop() {
+                if (!this.running) return;
+                const left = Math.ceil((this.endTime - performance.now()) / 1000);
+                if (left !== this.remaining) { this.remaining = left; this.onTick(this.remaining, this.duration); }
+                if (left <= 0) { this.running = false; this.onTick(0, this.duration); this.onComplete(); toggleFocusMode(false); }
+                else this.raf = requestAnimationFrame(this.loop.bind(this));
+            }
+        }
+
+        // --- CIRCUIT CONTROLLER (UNIFIED DND) ---
+        const CircuitController = {
+            queue: [], queueIndex: 0,
+
+            init() {
+                if (STATE.workout.length === 0) {
+                    STATE.circuitRounds = 3;
+                    STATE.workout = [
+                        { name: "Push ups", duration: 30 },
+                        { name: "Abs Plank", duration: 70 },
+                        { name: "Squats", duration: 45 },
+                        { name: "Rest Period", duration: 30 }
+                    ];
+                }
+                this.renderEditor();
+            },
+
+            renderEditor() {
+                const con = document.getElementById('interval-list');
+                const roundsEl = document.getElementById('rounds-count');
+                const totalEl = document.getElementById('total-duration');
+
+                roundsEl.innerText = STATE.circuitRounds;
+                con.innerHTML = '';
+
+                let totalSec = 0;
+
+                // Drop Indicator Element (Stored in Controller for reuse)
+                if (!this.dropLineEl) {
+                    this.dropLineEl = document.createElement('div');
+                    this.dropLineEl.className = 'drop-indicator';
+                }
+
+                STATE.workout.forEach((item, i) => {
+                    totalSec += item.duration;
+                    const card = document.createElement('div');
+                    card.className = 'interval-card';
+                    card.dataset.index = i;
+
+                    // Unified Mouse/Touch Listener on Handle
+                    const handle = document.createElement('div');
+                    handle.className = 'drag-handle';
+                    handle.innerText = '::';
+                    handle.onmousedown = (e) => this.dragStart(e, i, card, false);
+                    handle.ontouchstart = (e) => this.dragStart(e, i, card, true);
+
+                    card.appendChild(handle);
+
+                    // Body
+                    const inputs = document.createElement('input');
+                    inputs.className = 'card-name-input';
+                    inputs.value = item.name;
+                    inputs.onchange = (e) => this.updateIt(i, 'name', e.target.value);
+                    card.appendChild(inputs);
+
+                    const ctrls = document.createElement('div');
+                    ctrls.className = 'time-control-group';
+                    ctrls.innerHTML = `
+                        <button class="mini-btn" onclick="CircuitController.adjustTime(${i}, -5)">-</button>
+                        <div class="time-display-box" onclick="CircuitController.adjustTime(${i}, 5)">${formatDur(item.duration)}</div>
+                        <button class="mini-btn" onclick="CircuitController.adjustTime(${i}, 5)">+</button>
+                    `;
+                    card.appendChild(ctrls);
+
+                    const del = document.createElement('button');
+                    del.className = 'btn-delete';
+                    del.innerHTML = `<svg width="14" height="18" viewBox="0 0 14 18" fill="none"><path d="M1 16C1 17.1 1.9 18 3 18H11C12.1 18 13 17.1 13 16V4H1V16ZM14 1H10.5L9.5 0H4.5L3.5 1H0V3H14V1Z" fill="#FF453A"/></svg>`;
+                    del.onclick = () => this.deleteIt(i);
+                    card.appendChild(del);
+
+                    con.appendChild(card);
+                });
+
+                const grandTotal = totalSec * STATE.circuitRounds;
+                const m = Math.floor(grandTotal / 60);
+                const s = grandTotal % 60;
+                totalEl.innerText = `Total Duration: ${m}m ${s}s`;
+            },
+
+            // --- UNIFIED DND LOGIC ---
+            dragStart(e, index, card, isTouch) {
+                e.preventDefault(); // Stop standard behavior
+                this.dragIdx = index;
+                this.dragOriginCard = card;
+
+                // 1. Create Floating Ghost
+                this.ghost = card.cloneNode(true);
+                this.ghost.className = 'drag-ghost';
+                this.ghost.style.setProperty('--ghost-width', card.offsetWidth + 'px');
+                this.ghost.style.setProperty('--ghost-height', card.offsetHeight + 'px');
+
+                const rect = card.getBoundingClientRect();
+                const clientX = isTouch ? e.touches[0].clientX : e.clientX;
+                const clientY = isTouch ? e.touches[0].clientY : e.clientY;
+
+                // Offset calculation to keep mouse where it grabbed
+                this.offsetX = clientX - rect.left;
+                this.offsetY = clientY - rect.top;
+
+                this.updateGhostPos(clientX, clientY);
+                document.body.appendChild(this.ghost);
+
+                // 2. Styling States
+                document.getElementById('interval-list').classList.add('is-dragging-active');
+                card.classList.add('drag-placeholder');
+                if (navigator.vibrate) navigator.vibrate(50);
+
+                // 3. Attach Global Listeners
+                const moveFn = (ev) => this.onMove(ev, isTouch);
+                const endFn = (ev) => {
+                    document.removeEventListener(isTouch ? 'touchmove' : 'mousemove', moveFn);
+                    document.removeEventListener(isTouch ? 'touchend' : 'mouseup', endFn);
+                    this.onEnd(ev);
+                };
+
+                document.addEventListener(isTouch ? 'touchmove' : 'mousemove', moveFn, { passive: false });
+                document.addEventListener(isTouch ? 'touchend' : 'mouseup', endFn);
+            },
+
+            updateGhostPos(x, y) {
+                this.ghost.style.top = (y - this.offsetY) + 'px';
+                this.ghost.style.left = (x - this.offsetX) + 'px';
+            },
+
+            onMove(e, isTouch) {
+                e.preventDefault();
+                const x = isTouch ? e.touches[0].clientX : e.clientX;
+                const y = isTouch ? e.touches[0].clientY : e.clientY;
+                this.updateGhostPos(x, y);
+
+                // Hit Test
+                // Hide ghost momentarily to get element below? No, ghost has pointer-events: none
+                const target = document.elementFromPoint(x, y);
+                const card = target ? target.closest('.interval-card') : null;
+
+                // Auto Scroll logic
+                const list = document.getElementById('interval-list');
+                if (y > window.innerHeight - 100) list.scrollBy(0, 5);
+                if (y < 150) list.scrollBy(0, -5);
+
+                const dropEl = this.dropLineEl;
+
+                if (card && card !== this.dragOriginCard) {
+                    const rect = card.getBoundingClientRect();
+                    const mid = rect.top + rect.height / 2;
+                    const isAfter = y > mid;
+
+                    if (isAfter) {
+                        if (card.nextSibling !== dropEl) card.parentNode.insertBefore(dropEl, card.nextSibling);
+                        this.dropIndex = parseInt(card.dataset.index) + 1;
+                    } else {
+                        if (card.previousSibling !== dropEl) card.parentNode.insertBefore(dropEl, card);
+                        this.dropIndex = parseInt(card.dataset.index);
+                    }
+                } else if (!card && dropEl.parentNode) {
+                    // Keep it where it is or remove? Let's keep it if we are still near list
+                }
+            },
+
+            onEnd(e) {
+                this.ghost.remove();
+                document.getElementById('interval-list').classList.remove('is-dragging-active');
+                if (this.dragOriginCard) this.dragOriginCard.classList.remove('drag-placeholder');
+
+                if (this.dropLineEl.parentNode) {
+                    this.dropLineEl.remove(); // Remove indicator
+
+                    if (this.dropIndex !== undefined && this.dropIndex !== null) {
+                        let from = this.dragIdx;
+                        let to = this.dropIndex;
+
+                        // Adjustment because removing 'from' changes indices
+                        if (from < to) to--;
+
+                        // Array Logic
+                        const [item] = STATE.workout.splice(from, 1);
+                        STATE.workout.splice(to, 0, item);
+
+                        this.renderEditor();
+                        if (navigator.vibrate) navigator.vibrate(20);
+                    }
+                }
+
+                this.dropIndex = null;
+                this.dragOriginCard = null;
+            },
+
+            updateRounds(delta) {
+                STATE.circuitRounds = Math.max(1, STATE.circuitRounds + delta);
+                this.renderEditor();
+                if (navigator.vibrate) navigator.vibrate(10);
+            },
+
+            adjustTime(i, delta) {
+                STATE.workout[i].duration = Math.max(5, STATE.workout[i].duration + delta);
+                this.renderEditor();
+                if (navigator.vibrate) navigator.vibrate(10);
+            },
+
+            updateIt(i, k, v) { STATE.workout[i][k] = v; },
+            deleteIt(i) { STATE.workout.splice(i, 1); this.renderEditor(); },
+            addInterval() { STATE.workout.push({ name: "New Interval", duration: 30 }); this.renderEditor(); },
+
+            compileQueue() {
+                this.queue = [];
+                for (let r = 1; r <= STATE.circuitRounds; r++) {
+                    STATE.workout.forEach(item => {
+                        this.queue.push({
+                            name: item.name,
+                            duration: item.duration,
+                            label: `Round ${r}/${STATE.circuitRounds}`
+                        });
+                    });
+                }
+            },
+
+            startQueue() {
+                this.compileQueue();
+                if (this.queue.length === 0) return;
+                document.getElementById('editor-modal').classList.remove('open');
+                this.queueIndex = -1;
+                this.next();
+            },
+
+            next() {
+                this.queueIndex++;
+                if (this.queueIndex < this.queue.length) {
+                    const item = this.queue[this.queueIndex];
+                    document.getElementById('circuit-status').textContent = `${item.name} • ${item.label}`;
+                    const isRest = item.name.toLowerCase().includes('rest') || item.name.toLowerCase().includes('recover');
+                    document.body.className = isRest ? 'theme-blue' : 'theme-red';
+                    timer.start(item.duration);
+                    VisualEngine.updateProgress(item.duration, item.duration);
+                    QuickTimer.updateDisplay(item.duration);
+                } else {
+                    document.body.className = 'theme-green';
+                    elTimerText.innerHTML = "DONE";
+                    elBtnStart.textContent = "Start";
+                }
+            },
+
+            start() {
+                if (timer.running) { timer.pause(); elBtnStart.textContent = "Resume"; }
+                else {
+                    if (this.queue.length > 0 && this.queueIndex < this.queue.length) {
+                        timer.resume();
+                        elBtnStart.textContent = "Pause";
+                    } else {
+                        this.startQueue();
+                    }
+                }
+            },
+
+            reset() {
+                timer.reset();
+                this.queueIndex = 0;
+                document.getElementById('circuit-status').textContent = "Ready";
+                elBtnStart.textContent = "Start";
+                QuickTimer.updateDisplay(0);
+            }
+        };
+
+        const STATE = { mode: 'quick', defaultTime: 600, workout: [], circuitRounds: 3 };
+        const elTimerText = document.getElementById('timer-text');
+        const elBtnStart = document.getElementById('btn-start');
+        const elBtnReset = document.getElementById('btn-reset');
+        const elMobileInput = document.getElementById('mobileTimerInput');
+        let minutesPicker, secondsPicker;
+
+        const toggleFocusMode = (active) => {
+            if (active) document.body.classList.add('running-focus');
+            else document.body.classList.remove('running-focus');
+        };
+
+        const VisualEngine = {
+            updateProgress(rem, tot) {
+                const path = document.getElementById('border-path');
+                path.style.strokeDashoffset = path.getTotalLength() * (1 - (tot - rem) / tot);
+            }
+        };
+
+        const timer = new TimerEngine(
+            (rem, tot) => {
+                const t = formatTime(rem);
+                document.querySelector('.minutes').textContent = t.m.padStart(2, '0');
+                document.querySelector('.seconds').textContent = t.s;
+                VisualEngine.updateProgress(rem, tot);
+                if (STATE.mode === 'quick' && rem <= 10 && rem > 0 && !document.body.classList.contains('theme-red')) {
+                    document.body.className = 'theme-red';
+                }
+            },
+            () => {
+                if (STATE.mode === 'circuit') CircuitController.next();
+                else { elTimerText.innerHTML = "DONE"; document.body.className = 'theme-green'; elBtnStart.textContent = "Start"; }
+            }
+        );
+
+        const QuickTimer = {
+            init() {
+                document.getElementById('circuit-status').classList.add('hidden');
+                document.body.className = 'theme-black';
+                this.updateDisplay(STATE.defaultTime);
+                elBtnStart.textContent = "Start";
+            },
+            updateDisplay(s) {
+                if (!document.querySelector('.minutes')) { elTimerText.innerHTML = `<span class="timer-segment minutes"></span><span class="timer-separator">:</span><span class="timer-segment seconds"></span>`; }
+                const t = formatTime(s);
+                document.querySelector('.minutes').textContent = t.m.padStart(2, '0');
+                document.querySelector('.seconds').textContent = t.s;
+            },
+            start() {
+                if (timer.running) { timer.pause(); elBtnStart.textContent = "Resume"; }
+                else {
+                    elMobileInput.classList.remove('open');
+                    if (elTimerText.innerHTML === "DONE" || timer.remaining === 0) timer.start(STATE.defaultTime);
+                    else timer.resume();
+                    elBtnStart.textContent = "Pause";
+                }
+            },
+            reset() {
+                timer.reset(); document.body.className = 'theme-black'; this.updateDisplay(STATE.defaultTime); elBtnStart.textContent = "Start";
+                VisualEngine.updateProgress(STATE.defaultTime, STATE.defaultTime);
+            },
+            updateTime(s) { STATE.defaultTime = s; this.reset(); }
+        };
+
+        window.setMode = mode => {
+            STATE.mode = mode;
+            document.querySelectorAll('.mode-btn').forEach(b => b.classList.toggle('active', b.innerText.toLowerCase().includes(mode)));
+            if (mode === 'quick') {
+                QuickTimer.init();
+                document.getElementById('editor-modal').classList.remove('open');
+            } else {
+                CircuitController.init();
+                document.getElementById('circuit-status').classList.remove('hidden');
+                document.getElementById('editor-modal').classList.add('open');
+            }
+        };
+
+        elBtnStart.onclick = () => STATE.mode === 'quick' ? QuickTimer.start() : CircuitController.start();
+        elBtnReset.onclick = () => STATE.mode === 'quick' ? QuickTimer.reset() : CircuitController.reset();
+
+        elTimerText.addEventListener('click', (e) => {
+            if (e.target.closest('.timer-segment') || e.target.closest('#timer-text')) {
+                if (STATE.mode === 'quick' && !timer.running) {
+                    elMobileInput.classList.add('open');
+                    if (!minutesPicker) {
+                        minutesPicker = new MomentumPicker(document.getElementById('minutesPicker'), { max: 99, initialValue: 10 });
+                        secondsPicker = new MomentumPicker(document.getElementById('secondsPicker'), { max: 59, step: 5 });
+                    }
+                }
+            }
+        });
+        document.getElementById('setTimeBtn').onclick = () => {
+            if (minutesPicker && secondsPicker) QuickTimer.updateTime(minutesPicker.getValue() * 60 + secondsPicker.getValue());
+            elMobileInput.classList.remove('open');
+        };
+
+        class KeyboardShortcutsManager {
+            constructor() { if (isMobile()) return; this.p = document.getElementById('shortcutsPanel'); this.init(); }
+            init() {
+                document.getElementById('shortcutsToggle').onclick = () => this.p.classList.toggle('visible');
+                document.addEventListener('keydown', e => {
+                    if (e.target.tagName === 'INPUT') return;
+                    if (e.key === ' ') { e.preventDefault(); elBtnStart.click(); }
+                    if (e.key.toLowerCase() === 'r') elBtnReset.click();
+                    if (e.key === '?') this.p.classList.toggle('visible');
+                });
+            }
+        }
+
+        const updateLayout = () => {
+            const w = window.innerWidth;
+            const stroke = w < 768 ? CONFIG.baseStrokeMobile : CONFIG.baseStrokeDesktop;
+            document.documentElement.style.setProperty('--progress-width', `${stroke}px`);
+            const half = stroke / 2;
+            const path = document.getElementById('border-path');
+            const d = `M ${w / 2} ${half} L ${w - half} ${half} L ${w - half} ${window.innerHeight - half} L ${half} ${window.innerHeight - half} L ${half} ${half} L ${w / 2} ${half}`;
+            path.setAttribute('d', d); path.style.strokeDasharray = path.getTotalLength();
+        };
+
+        window.addEventListener('resize', updateLayout);
+        window.addEventListener('DOMContentLoaded', () => {
+            updateLayout();
+            if (!isMobile()) new KeyboardShortcutsManager();
+            QuickTimer.init();
+        });
+    </script>
+</body>
+
+</html>
