@@ -139,6 +139,11 @@
             z-index: 20;
         }
 
+        .timer-display.long-text {
+            font-size: 15vw;
+            /* Universal scaling for "Time's Up" */
+        }
+
         .circuit-status {
             position: absolute;
             top: 15vh;
@@ -1431,9 +1436,10 @@
                     VisualEngine.updateProgress(item.duration, item.duration);
                     QuickTimer.updateDisplay(item.duration);
                 } else {
-                    document.body.className = 'theme-red'; // Keep Red as requested
-                    elTimerText.innerHTML = "Time's Up";   // Changed from DONE
-                    AudioEngine.playBuzzer();              // End Sound
+                    document.body.className = 'theme-red';
+                    elTimerText.innerHTML = "Time's Up";
+                    elTimerText.classList.add('long-text'); // Font Fix
+                    AudioEngine.playBuzzer();
                     elBtnStart.textContent = "Start";
                 }
             },
@@ -1492,6 +1498,7 @@
                 if (STATE.mode === 'circuit') CircuitController.next();
                 else {
                     elTimerText.innerHTML = "Time's Up";
+                    elTimerText.classList.add('long-text'); // Font Fix
                     document.body.className = 'theme-red';
                     AudioEngine.playBuzzer();
                     elBtnStart.textContent = "Start";
@@ -1509,6 +1516,7 @@
             updateDisplay(s) {
                 if (!document.querySelector('.minutes')) { elTimerText.innerHTML = `<span class="timer-segment minutes"></span><span class="timer-separator">:</span><span class="timer-segment seconds"></span>`; }
                 const t = formatTime(s);
+                elTimerText.classList.remove('long-text'); // Clear size fix
                 document.querySelector('.minutes').textContent = t.m.padStart(2, '0');
                 document.querySelector('.seconds').textContent = t.s;
             },
@@ -1516,7 +1524,9 @@
                 if (timer.running) { timer.pause(); elBtnStart.textContent = "Resume"; }
                 else {
                     elMobileInput.classList.remove('open');
-                    if (elTimerText.innerHTML === "DONE" || timer.remaining === 0) timer.start(STATE.defaultTime);
+                    elTimerText.classList.remove('long-text'); // Clear size fix
+                    // Check if showing "Time's Up" (previously DONE)
+                    if (elTimerText.innerHTML === "Time's Up" || elTimerText.innerHTML === "DONE" || timer.remaining === 0) timer.start(STATE.defaultTime);
                     else timer.resume();
                     elBtnStart.textContent = "Pause";
                 }
@@ -1545,6 +1555,12 @@
         elBtnReset.onclick = () => STATE.mode === 'quick' ? QuickTimer.reset() : CircuitController.reset();
 
         elTimerText.addEventListener('click', (e) => {
+            // Mobile Interaction: Toggle Controls on Tap when Running
+            if (timer.running) {
+                toggleFocusMode(!document.body.classList.contains('running-focus'));
+                return;
+            }
+
             if (e.target.closest('.timer-segment') || e.target.closest('#timer-text')) {
                 if (STATE.mode === 'quick' && !timer.running) {
                     elMobileInput.classList.add('open');
