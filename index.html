@@ -335,7 +335,8 @@
         .shortcuts-legend {
             position: fixed;
             bottom: 1rem;
-            right: 1rem;
+            left: 1rem;
+            /* MOVED TO LEFT */
             z-index: 100;
             display: none;
         }
@@ -344,6 +345,35 @@
             .shortcuts-legend {
                 display: block;
             }
+        }
+
+        /* BUY ME A COFFEE (Right) */
+        .coffee-link {
+            position: fixed;
+            bottom: 1rem;
+            right: 1rem;
+            /* On Right */
+            z-index: 100;
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: white;
+            font-size: 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-decoration: none;
+            transition: all 0.3s;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+
+        .coffee-link:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: scale(1.1);
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
         }
 
         .shortcuts-toggle {
@@ -365,7 +395,9 @@
         .shortcuts-panel {
             position: absolute;
             bottom: 60px;
-            right: 0;
+            left: 0;
+            /* Align to the LEFT now */
+            right: auto;
             width: 280px;
             background: rgba(20, 20, 20, 0.98);
             backdrop-filter: blur(20px);
@@ -994,6 +1026,10 @@
             </div>
         </div>
     </div>
+
+    <!-- COFFEE LINK -->
+    <a href="https://buymeacoffee.com/manavbuilds" target="_blank" class="coffee-link"
+        aria-label="Buy me a coffee">☕</a>
 
     <script>
         const CONFIG = { baseStrokeDesktop: 50, baseStrokeMobile: 20 };
