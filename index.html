@@ -202,7 +202,8 @@
             display: flex;
             gap: 1rem;
             transition: opacity 0.5s ease;
-            z-index: 30;
+            z-index: 100;
+            /* Boosted for Mobile Click Fix */
         }
 
         .btn {
@@ -1086,6 +1087,57 @@
             getValue() { return this.currentValue; }
         }
 
+        // --- AUDIO ENGINE ---
+        const AudioEngine = {
+            ctx: null,
+            init() {
+                if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+            },
+            playTone(freq, type, duration, vol = 0.5) {
+                if (!this.ctx) this.init();
+                if (this.ctx.state === 'suspended') this.ctx.resume();
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = type;
+                osc.frequency.value = freq;
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                gain.gain.setValueAtTime(vol, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + duration);
+                osc.stop(this.ctx.currentTime + duration);
+            },
+            playCount(val) {
+                // High blip for 3, 2, 1
+                if (val <= 3 && val > 0) this.playTone(800, 'sine', 0.15, 0.3);
+            },
+            playGo() {
+                // Higher long beep for GO
+                this.playTone(1200, 'square', 0.4, 0.2);
+            },
+            playWhistle() {
+                // Sports Whistle Effect (Modulating Sine)
+                if (!this.ctx) this.init();
+                if (this.ctx.state === 'suspended') this.ctx.resume();
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.frequency.setValueAtTime(2500, now);
+                osc.frequency.linearRampToValueAtTime(1500, now + 0.1);
+                osc.frequency.linearRampToValueAtTime(2500, now + 0.2);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now);
+                gain.gain.setValueAtTime(0.4, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
+                osc.stop(now + 0.6);
+            },
+            playBuzzer() {
+                // Low generic buzzer
+                this.playTone(150, 'sawtooth', 0.8, 0.6);
+            }
+        };
+
         // --- TIMER ENGINE ---
         class TimerEngine {
             constructor(onTick, onComplete) {
@@ -1099,8 +1151,17 @@
             loop() {
                 if (!this.running) return;
                 const left = Math.ceil((this.endTime - performance.now()) / 1000);
-                if (left !== this.remaining) { this.remaining = left; this.onTick(this.remaining, this.duration); }
-                if (left <= 0) { this.running = false; this.onTick(0, this.duration); this.onComplete(); toggleFocusMode(false); }
+                if (left !== this.remaining) {
+                    this.remaining = left;
+                    AudioEngine.playCount(left); // Countdown Sound
+                    this.onTick(this.remaining, this.duration);
+                }
+                if (left <= 0) {
+                    this.running = false;
+                    this.onTick(0, this.duration);
+                    this.onComplete();
+                    toggleFocusMode(false);
+                }
                 else this.raf = requestAnimationFrame(this.loop.bind(this));
             }
         }
@@ -1310,6 +1371,9 @@
 
             compileQueue() {
                 this.queue = [];
+                // Add "Get Ready" Buffer
+                this.queue.push({ name: "Get Ready", duration: 5, label: "Prepare" });
+
                 for (let r = 1; r <= STATE.circuitRounds; r++) {
                     STATE.workout.forEach(item => {
                         this.queue.push({
@@ -1334,14 +1398,25 @@
                 if (this.queueIndex < this.queue.length) {
                     const item = this.queue[this.queueIndex];
                     document.getElementById('circuit-status').textContent = `${item.name} • ${item.label}`;
-                    const isRest = item.name.toLowerCase().includes('rest') || item.name.toLowerCase().includes('recover');
-                    document.body.className = isRest ? 'theme-blue' : 'theme-red';
+
+                    const name = item.name.toLowerCase();
+                    const isRest = name.includes('rest') || name.includes('recover');
+                    const isPrep = name.includes('get ready');
+
+                    if (isPrep) document.body.className = 'theme-blue';
+                    else if (isRest) document.body.className = 'theme-blue';
+                    else document.body.className = 'theme-red';
+
+                    if (!isPrep) AudioEngine.playWhistle(); // Start Whistle (skip on prepare)
+                    else AudioEngine.playGo(); // Just a beep for prepare start
+
                     timer.start(item.duration);
                     VisualEngine.updateProgress(item.duration, item.duration);
                     QuickTimer.updateDisplay(item.duration);
                 } else {
-                    document.body.className = 'theme-green';
-                    elTimerText.innerHTML = "DONE";
+                    document.body.className = 'theme-red'; // Keep Red as requested
+                    elTimerText.innerHTML = "Time's Up";   // Changed from DONE
+                    AudioEngine.playBuzzer();              // End Sound
                     elBtnStart.textContent = "Start";
                 }
             },
