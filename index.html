@@ -263,17 +263,42 @@
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
         }
 
-        .visitor-counter {
-            height: 28px;
-            align-self: center;
-            border-radius: 4px;
-            margin-left: 4px;
-            opacity: 0.8;
-            transition: opacity 0.3s;
+        .visitor-pill {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            padding: 4px 10px;
+            border-radius: 20px;
+            margin-left: 8px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: rgba(255, 255, 255, 0.8);
+            transition: all 0.3s;
+            cursor: default;
         }
 
-        .visitor-counter:hover {
-            opacity: 1;
+        .visitor-pill:hover {
+            background: rgba(255, 255, 255, 0.15);
+            border-color: rgba(255, 255, 255, 0.3);
+            transform: translateY(-1px);
+        }
+
+        .pill-value {
+            color: white;
+            font-weight: 700;
+        }
+
+        body.theme-red .visitor-pill {
+            background: rgba(13, 26, 34, 0.3);
+            border-color: rgba(13, 26, 34, 0.2);
+            color: rgba(13, 26, 34, 0.7);
+        }
+
+        body.theme-red .pill-value {
+            color: #0D1A22;
         }
 
         body.theme-red .mode-btn {
@@ -1019,9 +1044,10 @@
         <header class="mode-switcher">
             <button class="mode-btn active" onclick="setMode('quick')">Quick</button>
             <button class="mode-btn" onclick="setMode('circuit')">Circuit</button>
-            <img class="visitor-counter"
-                src="https://visitor-badge.laobi.icu/badge?page_id=manav-repo.Timer-pro&left_color=%231A1A1A&right_color=%23FD4456&left_text=Visitors"
-                alt="Visitor Count">
+            <div class="visitor-pill" title="Unique Visitors">
+                <span>Visitors</span>
+                <span class="pill-value" id="visitor-count">...</span>
+            </div>
         </header>
 
         <main id="main-timer" aria-live="polite">
@@ -1125,6 +1151,34 @@
                 }
             })
             .catch(() => document.getElementById('starCount').innerText = "Star");
+
+        // SMART UNIQUE VISITOR COUNTER
+        const NAMESPACE = 'timer-pro-manav-unique';
+        const KEY = 'visits';
+        const visited = localStorage.getItem('has_visited_timer_pro');
+        const countEl = document.getElementById('visitor-count');
+
+        const updateCount = (data) => {
+            if (data && data.value) countEl.innerText = data.value.toLocaleString();
+            else countEl.innerText = '...';
+        };
+
+        if (!visited) {
+            // New Visitor: Increment (+1)
+            fetch(`https://api.counterapi.dev/v1/${NAMESPACE}/${KEY}/up`)
+                .then(r => r.json())
+                .then(d => {
+                    localStorage.setItem('has_visited_timer_pro', 'true');
+                    updateCount(d.count ? { value: d.count } : d); // Handle different API responses
+                })
+                .catch(e => console.log('Counter Error:', e));
+        } else {
+            // Returning Visitor: Get only (No increment)
+            fetch(`https://api.counterapi.dev/v1/${NAMESPACE}/${KEY}/`)
+                .then(r => r.json())
+                .then(d => updateCount(d))
+                .catch(e => console.log('Counter Error:', e));
+        }
     </script>
 
     <script>
