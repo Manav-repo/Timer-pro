@@ -1159,7 +1159,8 @@
         const countEl = document.getElementById('visitor-count');
 
         const updateCount = (data) => {
-            if (data && data.value) countEl.innerText = data.value.toLocaleString();
+            const val = data.count || data.value;
+            if (val !== undefined) countEl.innerText = val.toLocaleString();
             else countEl.innerText = '...';
         };
 
@@ -1169,7 +1170,7 @@
                 .then(r => r.json())
                 .then(d => {
                     localStorage.setItem('has_visited_timer_pro', 'true');
-                    updateCount(d.count ? { value: d.count } : d); // Handle different API responses
+                    updateCount(d);
                 })
                 .catch(e => console.log('Counter Error:', e));
         } else {
