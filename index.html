@@ -1175,7 +1175,7 @@
                 .catch(e => console.log('Counter Error:', e));
         } else {
             // Returning Visitor: Get only (No increment)
-            fetch(`https://api.counterapi.dev/v1/${NAMESPACE}/${KEY}`)
+            fetch(`https://api.counterapi.dev/v1/${NAMESPACE}/${KEY}/`)
                 .then(r => r.json())
                 .then(d => updateCount(d))
                 .catch(e => console.log('Counter Error:', e));
