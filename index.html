@@ -1174,7 +1174,7 @@
                 .catch(e => console.log('Counter Error:', e));
         } else {
             // Returning Visitor: Get only (No increment)
-            fetch(`https://api.counterapi.dev/v1/${NAMESPACE}/${KEY}/`)
+            fetch(`https://api.counterapi.dev/v1/${NAMESPACE}/${KEY}`)
                 .then(r => r.json())
                 .then(d => updateCount(d))
                 .catch(e => console.log('Counter Error:', e));
@@ -1714,6 +1714,11 @@
             if (minutesPicker && secondsPicker) QuickTimer.updateTime(minutesPicker.getValue() * 60 + secondsPicker.getValue());
             elMobileInput.classList.remove('open');
         };
+
+        // FIX 1: Click background to close
+        elMobileInput.addEventListener('click', (e) => {
+            if (e.target === elMobileInput) elMobileInput.classList.remove('open');
+        });
 
         class KeyboardShortcutsManager {
             constructor() { if (isMobile()) return; this.p = document.getElementById('shortcutsPanel'); this.init(); }
