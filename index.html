@@ -1699,7 +1699,8 @@
         });
 
         elTimerText.addEventListener('click', (e) => {
-            if (e.target.closest('.timer-segment') || e.target.closest('#timer-text')) {
+            // STRICTER CHECK: Only trigger if clicking a specific number segment
+            if (e.target.classList.contains('timer-segment')) {
                 if (STATE.mode === 'quick' && !timer.running) {
                     elMobileInput.classList.add('open');
                     if (!minutesPicker) {
